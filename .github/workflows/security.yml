@@ -1,29 +1,24 @@
-name: Security Scan
-
+name: build
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-
 jobs:
-  trivy-scan:
-    name: Scan d'image conteneur (Trivy)
-    runs-on: ubuntu-latest
-
+  build:
+    name: Build
+    runs-on: ubuntu-24.04
     steps:
-      # TODO 1 — Récupérer le code source du dépôt
-      # Indice : action officielle GitHub "actions/checkout"
-
-      # TODO 2 — Construire l'image Docker locale
-      # Indice : commande "docker build", taguée "vulnerable-api"
-
-      # TODO 3 — Installer Trivy sur le runner
-      # Indice : action officielle Aqua Security "aquasecurity/trivy-action" n'existe pas pour ça.
-      #          Cherchez comment installer trivy via un step "run:" avec curl.
-
-      # TODO 4 — Lancer Trivy contre l'image construite
-      # Objectif : faire échouer le job si des CVE HIGH ou CRITICAL sont détectées
-      # Indice : consultez "trivy image --help" pour les flags utiles
-
-      # TODO 5 — (Bonus) Publier le rapport Trivy en artefact GitHub Actions
-      # Indice : "actions/upload-artifact"
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Build an image from Dockerfile
+        run: docker build -t docker.io/my-organization/my-app:${{ github.sha }} .
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: 'docker.io/my-organization/my-app:${{ github.sha }}'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
