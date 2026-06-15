@@ -1,4 +1,13 @@
-# CVE-2026-33671 (picomatch ReDoS) — fix exists in 4.0.4 but not yet referenced
-# by npm's advisory database. npm audit reports 0 vulnerabilities for this package.
-# Accepted: not exploitable via this application's API surface.
-CVE-2026-33671
+# .trivyignore — liste de CVE que l'on accepte SCIEMMENT d'ignorer.
+#
+# Règle d'or : on n'ignore une CVE que si on peut JUSTIFIER pourquoi (non
+# exploitable dans notre contexte, pas de correctif disponible, faux positif…).
+# Chaque ligne décommentée DOIT être accompagnée d'une justification datée.
+#
+# Format : un identifiant (CVE-xxxx-xxxx ou avis GHSA-/PKSA-) par ligne.
+#
+# Exemple (laissé en commentaire — n'ignore rien tant qu'il n'est pas décommenté) :
+#
+# # CVE-2024-XXXXX (libfoo) : pas de correctif amont, fonction non appelée par
+# # notre code. Réévalué le 2026-06-15. Ticket SEC-123.
+# CVE-2024-XXXXX

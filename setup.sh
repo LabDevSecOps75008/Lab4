@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-install_node() {
-    echo "==> Installation de Node.js (LTS)..."
-    curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
-    apt-get install -y nodejs
-}
+# Vérifie les prérequis du lab. PHP et Composer ne sont PAS requis en local :
+# on les exécute via des conteneurs (images officielles composer / php).
 
 install_trivy() {
     echo "==> Installation de Trivy..."
@@ -16,39 +13,45 @@ install_trivy() {
 echo "==> Vérification des prérequis..."
 echo ""
 
+ok=0
+
 # Git
 if command -v git &>/dev/null; then
-    echo "[OK] Git : $(git --version)"
+    echo "[OK] Git    : $(git --version)"
 else
-    echo "[MISSING] Git : installez Git avant de continuer."
-    exit 1
+    echo "[MANQUE] Git : installez Git avant de continuer."; ok=1
 fi
 
-# Docker
+# Docker (indispensable : build d'image, exécution de PHP/Composer en conteneur)
 if command -v docker &>/dev/null; then
     echo "[OK] Docker : $(docker --version)"
 else
-    echo "[MISSING] Docker : installez Docker avant de continuer."
-    exit 1
+    echo "[MANQUE] Docker : installez Docker avant de continuer."; ok=1
 fi
 
-# Node.js / npm
-if command -v node &>/dev/null && command -v npm &>/dev/null; then
-    echo "[OK] Node.js : $(node --version)"
-    echo "[OK] npm : $(npm --version)"
-else
-    install_node
-    echo "[OK] Node.js : $(node --version)"
-    echo "[OK] npm : $(npm --version)"
-fi
-
-# Trivy
+# Trivy (le scanner ; on propose de l'installer s'il manque)
 if command -v trivy &>/dev/null; then
-    echo "[OK] Trivy : $(trivy --version | head -n1)"
+    echo "[OK] Trivy  : $(trivy --version | head -n1)"
 else
-    install_trivy
-    echo "[OK] Trivy : $(trivy --version | head -n1)"
+    echo "[INFO] Trivy absent."
+    read -r -p "      L'installer maintenant ? [y/N] " ans
+    if [[ "${ans:-N}" =~ ^[yY]$ ]]; then
+        install_trivy
+        echo "[OK] Trivy  : $(trivy --version | head -n1)"
+    else
+        echo "      → installez-le plus tard : https://trivy.dev/latest/getting-started/installation/"
+        ok=1
+    fi
 fi
 
 echo ""
-echo "Tout est en place. Vous pouvez démarrer le TP."
+echo "Rappel : PHP et Composer ne sont pas nécessaires en local."
+echo "  composer install  →  docker run --rm -v \"\$PWD\":/app -w /app composer:2 install"
+echo ""
+
+if [[ "$ok" -eq 0 ]]; then
+    echo "Tout est en place. Vous pouvez démarrer le TP."
+else
+    echo "Des prérequis manquent (voir ci-dessus) avant de démarrer."
+    exit 1
+fi

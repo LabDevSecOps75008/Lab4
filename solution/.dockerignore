@@ -1,5 +1,12 @@
-node_modules
+# Empêche les fichiers sensibles/inutiles d'entrer dans le contexte de build.
+# Le .env est la fuite la plus grave : il ne doit JAMAIS finir dans l'image.
 .env
 .git
 .github
+vendor
 *.md
+attack-simulation.sh
+setup.sh
+docker-compose.yml
+nginx.conf
+solution

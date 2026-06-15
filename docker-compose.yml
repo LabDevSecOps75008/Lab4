@@ -1,0 +1,21 @@
+# Lance l'API en local : PHP-FPM (votre image) + nginx (reverse proxy).
+#
+#   docker compose up --build         → http://localhost:3000/health
+#
+# Le service "app" construit et tague l'image "vulnerable-api" : c'est elle que
+# vous passerez au scanner Trivy et à la simulation d'attaque.
+
+services:
+  app:
+    build: .
+    image: vulnerable-api
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "3000:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./public:/app/public:ro
+    depends_on:
+      - app

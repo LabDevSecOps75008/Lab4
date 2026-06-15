@@ -1,24 +1,34 @@
-name: build
+name: Scan sécurité conteneur
+
+# Déclencheurs : à chaque push sur main et à chaque pull request.
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
+
 jobs:
-  build:
-    name: Build
+  trivy:
+    name: Scan d'image conteneur (Trivy)
     runs-on: ubuntu-24.04
     steps:
-      - name: Checkout code
+      # 1. Récupère le code du dépôt.
+      - name: Checkout
         uses: actions/checkout@v4
-      - name: Build an image from Dockerfile
-        run: docker build -t docker.io/my-organization/my-app:${{ github.sha }} .
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@v0.36.0
+
+      # 2. Construit l'image à partir du Dockerfile.
+      - name: Build de l'image Docker
+        run: docker build -t secure-api:${{ github.sha }} .
+
+      # 3. Scanne l'image et FAIT ÉCHOUER le job si une CVE HIGH/CRITICAL
+      #    corrigeable est présente (exit-code: 1).
+      - name: Scan Trivy (HIGH, CRITICAL → bloquant)
+        uses: aquasecurity/trivy-action@0.28.0
         with:
-          image-ref: 'docker.io/my-organization/my-app:${{ github.sha }}'
+          image-ref: 'secure-api:${{ github.sha }}'
           format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
+          exit-code: '1'           # 1 = casse la CI si des CVE sont trouvées
+          ignore-unfixed: true     # on n'échoue que sur ce qui a un correctif
+          vuln-type: 'os,library'  # paquets OS + dépendances (composer.lock)
           severity: 'CRITICAL,HIGH'
+        # Astuce : tant que l'image de départ est vulnérable, ce step est ROUGE.
+        # Une fois le Dockerfile et les dépendances corrigés, il passe au VERT.
