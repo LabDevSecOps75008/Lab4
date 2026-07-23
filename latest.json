@@ -1,0 +1,196 @@
+{
+ "score": 0,
+ "grade": "F",
+ "sha": "2fbbb0f223c34ab776767bd3cfa7a34452d6a30a",
+ "head_sha": "2fbbb0f223c34ab776767bd3cfa7a34452d6a30a",
+ "run_id": "30017551765",
+ "generated_at": "2026-07-23T14:49:06.791436+00:00",
+ "jobs": {
+  "semgrep": "failure",
+  "gitleaks": "success",
+  "trivy": "failure"
+ },
+ "semgrep_findings": [
+  {
+   "severity": "WARNING",
+   "blocking": false,
+   "rule": "yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag",
+   "file": ".github/workflows/security.yml",
+   "line": 16,
+   "message": "GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently repointed by the action owner, enabling supply-chain attacks \u2014 as seen in the trivy-action and kics-github-action compromises. Pin the reference to a full 40-character commit SHA instead, e.g. `uses: ac",
+   "remediation": "See https://semgrep.dev/r/yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag"
+  },
+  {
+   "severity": "WARNING",
+   "blocking": false,
+   "rule": "yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag",
+   "file": ".github/workflows/security.yml",
+   "line": 25,
+   "message": "GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently repointed by the action owner, enabling supply-chain attacks \u2014 as seen in the trivy-action and kics-github-action compromises. Pin the reference to a full 40-character commit SHA instead, e.g. `uses: ac",
+   "remediation": "See https://semgrep.dev/r/yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag"
+  },
+  {
+   "severity": "ERROR",
+   "blocking": true,
+   "rule": "dockerfile.security.missing-user.missing-user",
+   "file": "Dockerfile",
+   "line": 26,
+   "message": "By not specifying a USER, a program in the container may run as 'root'. This is a security hazard. If an attacker can control a process running as root, they may have control over the container. Ensure that the last USER in a Dockerfile is a USER other than 'root'.",
+   "remediation": "See https://semgrep.dev/r/dockerfile.security.missing-user.missing-user"
+  }
+ ],
+ "trivy_vulnerabilities": [
+  {
+   "severity": "HIGH",
+   "blocking": true,
+   "id": "CVE-2022-29248",
+   "package": "guzzlehttp/guzzle",
+   "installed": "7.4.0",
+   "fixed": "6.5.6, 7.4.3",
+   "title": "Guzzle is a PHP HTTP client. Guzzle prior to versions 6.5.6 and 7.4.3  ...",
+   "remediation": "Upgrade guzzlehttp/guzzle to 6.5.6, 7.4.3."
+  },
+  {
+   "severity": "HIGH",
+   "blocking": true,
+   "id": "CVE-2022-31042",
+   "package": "guzzlehttp/guzzle",
+   "installed": "7.4.0",
+   "fixed": "7.4.4, 6.5.7",
+   "title": "Guzzle is an open source PHP HTTP client. In affected versions the `Co ...",
+   "remediation": "Upgrade guzzlehttp/guzzle to 7.4.4, 6.5.7."
+  },
+  {
+   "severity": "HIGH",
+   "blocking": true,
+   "id": "CVE-2022-31043",
+   "package": "guzzlehttp/guzzle",
+   "installed": "7.4.0",
+   "fixed": "7.4.4, 6.5.7",
+   "title": "Guzzle is an open source PHP HTTP client. In affected versions `Author ...",
+   "remediation": "Upgrade guzzlehttp/guzzle to 7.4.4, 6.5.7."
+  },
+  {
+   "severity": "HIGH",
+   "blocking": true,
+   "id": "CVE-2022-31090",
+   "package": "guzzlehttp/guzzle",
+   "installed": "7.4.0",
+   "fixed": "7.4.5, 6.5.8",
+   "title": "Guzzle, an extensible PHP HTTP client. `Authorization` headers on requ ...",
+   "remediation": "Upgrade guzzlehttp/guzzle to 7.4.5, 6.5.8."
+  },
+  {
+   "severity": "HIGH",
+   "blocking": true,
+   "id": "CVE-2022-31091",
+   "package": "guzzlehttp/guzzle",
+   "installed": "7.4.0",
+   "fixed": "7.4.5, 6.5.8",
+   "title": "Guzzle, an extensible PHP HTTP client. `Authorization` and `Cookie` he ...",
+   "remediation": "Upgrade guzzlehttp/guzzle to 7.4.5, 6.5.8."
+  },
+  {
+   "severity": "CRITICAL",
+   "blocking": true,
+   "id": "CVE-2022-23614",
+   "package": "twig/twig",
+   "installed": "v3.3.0",
+   "fixed": "2.14.11, 3.3.8",
+   "title": "twig: Disallow non closures in `sort` filter when the sandbox mode is enabled",
+   "remediation": "Upgrade twig/twig to 2.14.11, 3.3.8."
+  },
+  {
+   "severity": "CRITICAL",
+   "blocking": true,
+   "id": "CVE-2026-46633",
+   "package": "twig/twig",
+   "installed": "v3.3.0",
+   "fixed": "2.0.0, 3.0.0, 3.26.0",
+   "title": "Twig is a template language for PHP. Prior to 3.26.0, Compiler::string ...",
+   "remediation": "Upgrade twig/twig to 2.0.0, 3.0.0, 3.26.0."
+  },
+  {
+   "severity": "CRITICAL",
+   "blocking": true,
+   "id": "CVE-2026-48805",
+   "package": "twig/twig",
+   "installed": "v3.3.0",
+   "fixed": "2.0.0, 3.0.0, 3.27.0",
+   "title": "Twig is a template language for PHP. Prior to 3.27.0, deprecated inter ...",
+   "remediation": "Upgrade twig/twig to 2.0.0, 3.0.0, 3.27.0."
+  },
+  {
+   "severity": "CRITICAL",
+   "blocking": true,
+   "id": "CVE-2026-48806",
+   "package": "twig/twig",
+   "installed": "v3.3.0",
+   "fixed": "2.0.0, 3.0.0, 3.27.0",
+   "title": "Twig is a template language for PHP. Prior to 3.27.0, ArrayExpression  ...",
+   "remediation": "Upgrade twig/twig to 2.0.0, 3.0.0, 3.27.0."
+  },
+  {
+   "severity": "CRITICAL",
+   "blocking": true,
+   "id": "CVE-2026-48807",
+   "package": "twig/twig",
+   "installed": "v3.3.0",
+   "fixed": "2.0.0, 3.0.0, 3.27.0",
+   "title": "Twig is a template language for PHP. Prior to 3.27.0, the sandbox __to ...",
+   "remediation": "Upgrade twig/twig to 2.0.0, 3.0.0, 3.27.0."
+  },
+  {
+   "severity": "HIGH",
+   "blocking": true,
+   "id": "CVE-2022-39261",
+   "package": "twig/twig",
+   "installed": "v3.3.0",
+   "fixed": "1.44.7, 2.15.3, 3.4.3",
+   "title": "Twig is a template language for PHP. Versions 1.x prior to 1.44.7, 2.x ...",
+   "remediation": "Upgrade twig/twig to 1.44.7, 2.15.3, 3.4.3."
+  },
+  {
+   "severity": "HIGH",
+   "blocking": true,
+   "id": "CVE-2024-45411",
+   "package": "twig/twig",
+   "installed": "v3.3.0",
+   "fixed": "1.44.7, 2.16.0, 3.11.0, 3.14.0",
+   "title": "Twig is a template language for PHP. Under some circumstances, the san ...",
+   "remediation": "Upgrade twig/twig to 1.44.7, 2.16.0, 3.11.0, 3.14.0."
+  },
+  {
+   "severity": "HIGH",
+   "blocking": true,
+   "id": "CVE-2026-46638",
+   "package": "twig/twig",
+   "installed": "v3.3.0",
+   "fixed": "2.0.0, 3.0.0, 3.26.0",
+   "title": "Twig is a template language for PHP. Prior to 3.26.0, {% sandbox %}{%  ...",
+   "remediation": "Upgrade twig/twig to 2.0.0, 3.0.0, 3.26.0."
+  },
+  {
+   "severity": "HIGH",
+   "blocking": true,
+   "id": "CVE-2026-48808",
+   "package": "twig/twig",
+   "installed": "v3.3.0",
+   "fixed": "2.0.0, 3.0.0, 3.27.0",
+   "title": "Twig is a template language for PHP. Prior to 3.27.0, the column filte ...",
+   "remediation": "Upgrade twig/twig to 2.0.0, 3.0.0, 3.27.0."
+  },
+  {
+   "severity": "HIGH",
+   "blocking": true,
+   "id": "CVE-2026-49981",
+   "package": "twig/twig",
+   "installed": "v3.3.0",
+   "fixed": "3.27.0",
+   "title": "Twig is a template language for PHP. Prior to 3.27.0, the per-template ...",
+   "remediation": "Upgrade twig/twig to 3.27.0."
+  }
+ ],
+ "gitleaks_leaks": [],
+ "waivers": []
+}

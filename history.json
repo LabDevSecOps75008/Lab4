@@ -1,0 +1,16 @@
+[
+ {
+  "head_sha": "2fbbb0f223c34ab776767bd3cfa7a34452d6a30a",
+  "sha": "2fbbb0f223c34ab776767bd3cfa7a34452d6a30a",
+  "score": 0,
+  "grade": "F",
+  "generated_at": "2026-07-23T14:49:06.791436+00:00",
+  "jobs": {
+   "semgrep": "failure",
+   "gitleaks": "success",
+   "trivy": "failure"
+  },
+  "blocking_count": 16,
+  "advisory_count": 2
+ }
+]
