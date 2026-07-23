@@ -1,0 +1,235 @@
+name: Security Gate
+
+# Stack-agnostic security gate — installed by install-security-gate.sh.
+# Runs on every push/PR: Semgrep (SAST) + Gitleaks (secrets) + Trivy (deps).
+# Publishes a machine-readable report + score history to the gate-reports
+# branch, consumed by the Zero-to-Prod dashboard.
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep:latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Run Semgrep (full scan, JSON report)
+        run: |
+          CONFIGS="--config auto"
+          [ -f .semgrep.yml ] && CONFIGS="$CONFIGS --config .semgrep.yml"
+          semgrep scan $CONFIGS --json --output semgrep-results.json . || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: semgrep-results
+          path: semgrep-results.json
+          retention-days: 7
+      - name: Gate on ERROR findings
+        run: |
+          python3 - <<'PYEOF'
+          import json, sys
+          d = json.load(open('semgrep-results.json'))
+          errors = [r for r in d.get('results', []) if r.get('extra', {}).get('severity') == 'ERROR']
+          for r in errors:
+              print(f"::error file={r['path']},line={r['start']['line']}::{r['check_id']}")
+          print(f"{len(errors)} blocking finding(s), {len(d.get('results', []))} total")
+          sys.exit(1 if errors else 0)
+          PYEOF
+
+  gitleaks:
+    name: Gitleaks Secrets Detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+      - name: Run Gitleaks (current branch history, redacted)
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz -o gitleaks.tgz
+          tar xzf gitleaks.tgz gitleaks
+          CFG=""
+          [ -f .gitleaks.toml ] && CFG="--config .gitleaks.toml"
+          ./gitleaks git $CFG \
+            --log-opts="--full-history HEAD" \
+            --report-format json --report-path gitleaks-results.json \
+            --redact --exit-code 1 .
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: gitleaks-results
+          path: gitleaks-results.json
+          retention-days: 7
+
+  trivy:
+    name: Trivy Dependency Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Run Trivy (fail on HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          exit-code: 1
+          ignore-unfixed: false
+          severity: HIGH,CRITICAL
+          format: json
+          output: trivy-results.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: trivy-results
+          path: trivy-results.json
+          retention-days: 7
+
+  security-gate:
+    name: Security Gate Decision
+    needs: [semgrep, gitleaks, trivy]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        continue-on-error: true
+        with:
+          path: artifacts
+      - name: Build gate report + score history
+        env:
+          SEMGREP_RESULT: ${{ needs.semgrep.result }}
+          GITLEAKS_RESULT: ${{ needs.gitleaks.result }}
+          TRIVY_RESULT: ${{ needs.trivy.result }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PYEOF'
+          import json, os, glob, datetime, urllib.request
+
+          def load(pattern):
+              for p in glob.glob(pattern):
+                  try: return json.load(open(p))
+                  except Exception: pass
+              return None
+
+          semgrep = load('artifacts/semgrep-results/semgrep-results.json')
+          trivy = load('artifacts/trivy-results/trivy-results.json')
+          gitleaks = load('artifacts/gitleaks-results/gitleaks-results.json')
+          waivers = load('security/waivers.json') or []
+
+          findings = []
+          for r in (semgrep or {}).get('results', []):
+              sev = r.get('extra', {}).get('severity')
+              findings.append({'severity': sev, 'blocking': sev == 'ERROR',
+                               'rule': r.get('check_id'), 'file': r.get('path'),
+                               'line': r.get('start', {}).get('line'),
+                               'message': (r.get('extra', {}).get('message') or '')[:300],
+                               'remediation': f"See https://semgrep.dev/r/{r.get('check_id')}"})
+
+          vulns = []
+          for res in (trivy or {}).get('Results') or []:
+              for v in res.get('Vulnerabilities') or []:
+                  fixed = v.get('FixedVersion'); pkg = v.get('PkgName')
+                  vulns.append({'severity': v.get('Severity'),
+                                'blocking': v.get('Severity') in ('HIGH', 'CRITICAL'),
+                                'id': v.get('VulnerabilityID'), 'package': pkg,
+                                'installed': v.get('InstalledVersion'), 'fixed': fixed,
+                                'title': (v.get('Title') or '')[:200],
+                                'remediation': (f"Upgrade {pkg} to {fixed}." if fixed
+                                                else f"No fix yet for {pkg} — watch the advisory.")})
+
+          leaks = []
+          for l in gitleaks or []:
+              leaks.append({'severity': 'CRITICAL', 'blocking': True, 'rule': l.get('RuleID'),
+                            'file': l.get('File'), 'line': l.get('StartLine'),
+                            'description': (l.get('Description') or '')[:200],
+                            'commit': (l.get('Commit') or '')[:7],
+                            'remediation': "Rotate the secret, move it to an env var, purge it from git history."})
+
+          def weight(sev):
+              return {'CRITICAL': 40, 'ERROR': 40, 'HIGH': 20, 'MEDIUM': 5,
+                      'WARNING': 5, 'LOW': 1, 'INFO': 1}.get(sev or '', 5)
+          penalty = sum(weight(f['severity']) for f in findings) \
+              + sum(weight(v['severity']) for v in vulns) \
+              + sum(weight(l['severity']) for l in leaks) + 2 * len(waivers)
+          score = max(0, 100 - penalty)
+          grade = next(g for g, t in [('A+', 95), ('A', 85), ('B', 70), ('C', 50), ('D', 30), ('F', -1)] if score >= t)
+
+          head_sha = os.environ.get('PR_HEAD_SHA') or os.environ.get('GITHUB_SHA')
+          report = {'score': score, 'grade': grade, 'sha': os.environ.get('GITHUB_SHA'),
+                    'head_sha': head_sha, 'run_id': os.environ.get('GITHUB_RUN_ID'),
+                    'generated_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    'jobs': {'semgrep': os.environ['SEMGREP_RESULT'],
+                             'gitleaks': os.environ['GITLEAKS_RESULT'],
+                             'trivy': os.environ['TRIVY_RESULT']},
+                    'semgrep_findings': findings, 'trivy_vulnerabilities': vulns,
+                    'gitleaks_leaks': leaks, 'waivers': waivers}
+          os.makedirs('report', exist_ok=True)
+          json.dump(report, open('report/latest.json', 'w'), indent=1)
+          print(f"report: grade {grade} ({score}/100)")
+
+          blocking_count = sum(1 for f in findings if f['blocking']) \
+              + sum(1 for v in vulns if v['blocking']) + sum(1 for l in leaks if l['blocking'])
+          advisory_count = (len(findings) + len(vulns) + len(leaks)) - blocking_count
+
+          def load_history():
+              repo = os.environ.get('GITHUB_REPOSITORY'); token = os.environ.get('GITHUB_TOKEN')
+              url = f"https://api.github.com/repos/{repo}/contents/history.json?ref=gate-reports"
+              req = urllib.request.Request(url, headers={'Accept': 'application/vnd.github.raw+json',
+                                                         'Authorization': f'Bearer {token}',
+                                                         'User-Agent': 'security-gate'})
+              try:
+                  with urllib.request.urlopen(req, timeout=15) as r:  # nosemgrep
+                      data = json.loads(r.read().decode())
+                      return data if isinstance(data, list) else []
+              except Exception as e:
+                  print(f"history: starting fresh ({e})"); return []
+
+          entry = {'head_sha': head_sha, 'sha': report['sha'], 'score': score, 'grade': grade,
+                   'generated_at': report['generated_at'], 'jobs': report['jobs'],
+                   'blocking_count': blocking_count, 'advisory_count': advisory_count}
+          history = [h for h in load_history() if h.get('head_sha') != head_sha]
+          history.append(entry); history = history[-50:]
+          json.dump(history, open('report/history.json', 'w'), indent=1)
+
+          summary = os.environ.get('GITHUB_STEP_SUMMARY')
+          if summary:
+              ok = all(v == 'success' for v in report['jobs'].values())
+              tone = {'A+': '🟢', 'A': '🟢', 'B': '🟡', 'C': '🟠', 'D': '🔴', 'F': '🔴'}[grade]
+              with open(summary, 'a') as s:
+                  s.write(f"# 🛡️ Security Gate — {'OPEN ✅' if ok else 'BLOCKED ⛔'}\n\n")
+                  s.write(f"## {tone} Vibe Security Score: **{grade}** ({score}/100)\n\n")
+                  s.write(f"{blocking_count} blocking · {advisory_count} advisory · {len(waivers)} waiver(s)\n\n")
+                  s.write("| Scan | Verdict |\n|---|---|\n")
+                  for k, v in report['jobs'].items():
+                      s.write(f"| {k.capitalize()} | {'✅' if v == 'success' else '❌'} {v} |\n")
+          PYEOF
+      - name: Publish report to gate-reports branch
+        run: |
+          cd report
+          git init -q -b gate-reports
+          git config user.name "security-gate[bot]"
+          git config user.email "actions@users.noreply.github.com"
+          git add latest.json history.json
+          git commit -q -m "gate report for ${GITHUB_SHA::7}"
+          git push --force -q \
+            "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" \
+            gate-reports
+      - name: Evaluate gate
+        run: |
+          echo "Semgrep: ${{ needs.semgrep.result }} | Gitleaks: ${{ needs.gitleaks.result }} | Trivy: ${{ needs.trivy.result }}"
+          if [ "${{ needs.semgrep.result }}" != "success" ] || \
+             [ "${{ needs.gitleaks.result }}" != "success" ] || \
+             [ "${{ needs.trivy.result }}" != "success" ]; then
+            echo "::error::Security gate BLOCKED — at least one scan failed"; exit 1
+          fi
+          echo "All security gates passed — safe to merge"
